@@ -10,4 +10,4 @@ The command arguments in visual stuidio should be: your model path and your imag
 
 The model for example is to segment the bone graft in maxillary sinus.
 
-![](C:\Users\dzzhang\Documents\Github\tf-predict-cpp\test\Img8_235.JPEG)![](C:\Users\dzzhang\Documents\Github\tf-predict-cpp\test\Img8_235.jpg)
+![](https://github.com/dzzhang96/tf-predict-cpp/blob/master/test/Img8_235.JPEG)![](https://github.com/dzzhang96/tf-predict-cpp/blob/master/test/Img8_235.jpg)
