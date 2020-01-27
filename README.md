@@ -6,8 +6,8 @@ You can compile the tenseorflow C++ library by yourself or download it from [her
 
 Freeze your model from .meta to .pb by using "freeze_model.py".
 
-The command arguments in visual stuidio should be: your model path and your image for prediction.
+The command arguments in visual studio should be: your model path and your image for prediction.
 
 The model for example is to segment the bone graft in maxillary sinus.
 
-![](C:\Users\dzzhang\Documents\Github\tf-predict-cpp\test\Img8_235.JPEG)![](C:\Users\dzzhang\Documents\Github\tf-predict-cpp\test\Img8_235.jpg)
+![](https://github.com/dzzhang96/tf-predict-cpp/blob/master/test/Img8_235.JPEG)![](https://github.com/dzzhang96/tf-predict-cpp/blob/master/test/Img8_235.jpg)
