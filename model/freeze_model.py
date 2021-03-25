@@ -17,5 +17,5 @@ with tf.Session() as sess:
         output_node_names)
 
     # Save the frozen graph
-    with open('unet2dglandceil.pb', 'wb') as f:
+    with open('BG-Segment-unet.pb', 'wb') as f:
       f.write(frozen_graph_def.SerializeToString())

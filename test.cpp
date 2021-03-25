@@ -17,88 +17,120 @@
 using namespace std;
 using namespace tensorflow;
 using namespace tensorflow::ops;
+using namespace cv;
+
+//void ReadImageNew(const vector<string> &file_names, const int height, const int width, vector<Tensor> &out_tensors) {
 //
-//void ReadImage(const vector<string> &file_names, const int height, const int width, vector<Tensor> &out_tensors)
-//{
-//	vector<Tensor> temp;
-//	for (auto &file_name : file_names)
-//	{
-//		ifstream file_in(file_name, ios::binary);
-//		Tensor image_tensor(DT_INT16, TensorShape({ 1, height, width, 1 }));
-//		short *image_data = image_tensor.flat<short>().data();
-//		file_in.read((char *)image_data, height * width * sizeof(short));
-//		file_in.close();
+//	for (auto &file_name : file_names) {
+//		auto img = cv::imread(file_name, cv::IMREAD_COLOR);
+//		int clen = sizeof(float) * height * width;
+//		tensorflow::Tensor input_tensor = tensorflow::Tensor(tensorflow::DT_FLOAT,
+//			tensorflow::TensorShape({ 1, 3, height, width }));
+//		uchar *p_cls = (uchar *)input_tensor.flat<float>().data();
 //
-//		temp.push_back(image_tensor);
+//		cv::Mat iimg, rgb[3];;
+//		img.convertTo(iimg, CV_32FC3);
+//		split(iimg, &rgb[0]);
+//		for (int j = 0; j < 3; j++) {
+//			memcpy(p_cls + j * clen, rgb[j].data, clen);
+//		}
+//		out_tensors.push_back(input_tensor);
 //	}
-//
-//	// Construct graph to adjust window level and width
-//	Scope root = Scope::NewRootScope();
-//	auto input_ = Placeholder(root, DT_INT16, Placeholder::Shape({ 1, height, width, 1 }));
-//	auto cliped = ClipByValue(root, input_, (short)-70, (short)180);
-//	auto shifted = Sub(root, cliped, (short)-70);
-//	auto casted = Cast(root, shifted, DT_FLOAT);
-//	auto scaled = Div(root, casted, 250.0f);
-//
-//	GraphDef graphdef;
-//	TF_CHECK_OK(root.ToGraphDef(&graphdef));
-//	ClientSession session(root);
-//	vector<Tensor> outputs;
-//	for (auto &img : temp)
+//}
+
+//void SaveImage(const vector<string> &names, const vector<Tensor> &masks)
+//{
+//	for (size_t i(0); i < names.size(); ++i)
 //	{
-//		TF_CHECK_OK(session.Run({ { input_, img} }, { scaled }, &outputs));
-//		out_tensors.push_back(outputs[0]);
-//		outputs.clear();
+//		uchar *p = (uchar *)masks[i].flat<float>().data();
+//		auto shape = masks[i].shape().dim_sizes();
+//
+//		int *arr = new int[shape[2] * shape[3]];
+//		memcpy(arr, p, shape[2] * shape[3] * sizeof(int));
+//
+//		cv::Mat image_mat((int)shape[2], (int)shape[3], CV_32F, p);
+//		image_mat.convertTo(image_mat, CV_8U, 255, 0);
+//		bool flag = cv::imwrite(names[i], image_mat);
+//		cout << names[i] << ": " << flag << endl;
+//		delete[] arr;
 //	}
 //}
 
 void ReadImageNew(const vector<string> &file_names, const int height, const int width, vector<Tensor> &out_tensors) {
-	for (auto &file_name : file_names) {
-		auto img = cv::imread(file_name, cv::IMREAD_COLOR);
-		int clen = sizeof(float) * height * width;
-		tensorflow::Tensor input_tensor = tensorflow::Tensor(tensorflow::DT_FLOAT,
-			tensorflow::TensorShape({ 1, 3, height, width }));
+	if (file_names.size() % 16 != 0) return;//判断输入图片个数是否合法
+	int size_tensor = file_names.size() / 16;//16张图片为1组，计算有多少组
+	int clen = sizeof(float) * height * width;//计算每一张图片的1个通道占用的字节数
+	//按组装填out_tensors
+	for (int i = 0; i < size_tensor; i++) 
+	{
+		//创建tensor
+		auto input_tensor = tensorflow::Tensor(tensorflow::DT_FLOAT, tensorflow::TensorShape({ 3, 16, height, width,1 }));
+		//获取tensor的起始地址
 		uchar *p_cls = (uchar *)input_tensor.flat<float>().data();
-
-		cv::Mat iimg, rgb[3];;
-		img.convertTo(iimg, CV_32FC3);
-		// img /= 128;
-		split(iimg, &rgb[0]);
-		for (int j = 0; j < 3; j++) {
-			memcpy(p_cls + j * clen, rgb[j].data, clen);
+		//一次性读入16张图到变量imgs中
+		vector<Mat> imgs;
+		for (int j = 0; j < 16; j++)
+		{
+			int index = i * 16 + j;//读入的图片路径的索引值
+			string file_name = file_names[index];//获取图片路径
+			auto img = cv::imread(file_name, cv::IMREAD_COLOR);
+			imgs.push_back(img);
 		}
+		//开始内存拷贝
+		//3个通道
+		for (int j = 0; j < 3; j++) {
+			//16张图
+			for (int k = 0; k < 16; k++)
+			{
+				cv::Mat iimg, rgb[3];
+				imgs[k].convertTo(iimg, CV_32FC3);
+				split(iimg, &rgb[0]);
+				//imshow("rgb", rgb[0]);
+				//waitKey(0);
+				int offset = (j * 16 + k) * clen;//计算地址偏移
+				memcpy(p_cls + offset, rgb[j].data, clen);
+			}
+		}
+
 		out_tensors.push_back(input_tensor);
 	}
 }
 
-
 void SaveImage(const vector<string> &names, const vector<Tensor> &masks)
 {
-	for (size_t i(0); i < names.size(); ++i)
+	for (auto &mask : masks)
 	{
-		uchar *p = (uchar *)masks[i].flat<float>().data();
-		auto shape = masks[i].shape().dim_sizes();
-		// cv::Mat dst((int)shape[1], (int)shape[2], CV_32F, p);
-		// cv::Mat image_mat((int)shape[1], (int)shape[2], CV_32F, p);
-		// auto shape = masks[i].shape().dim_sizes();
-		int *arr = new int[shape[1] * shape[2]];
-		memcpy(arr, p, shape[1] * shape[2] * sizeof(int));
+		uchar *p = (uchar *)mask.flat<float>().data();
+		auto shape = mask.shape().dim_sizes();
 
-		cv::Mat image_mat((int)shape[1], (int)shape[2], CV_32F, p);
-		image_mat.convertTo(image_mat, CV_8U, 255, 0);
-		bool flag = cv::imwrite(names[i], image_mat);
-		cout << names[i] << ": " << flag << endl;
-		delete[] arr;
+		int rows = (int)shape[2];
+		int cols = (int)shape[3];
+
+		cout << "rows= " << rows << " cols=" << cols << endl;
+		for (int i = 0; i < 16; i++)
+		{
+			int *arr = new int[rows * cols];
+			int offset = i * rows * cols * sizeof(int);
+			memcpy(arr, p + offset, rows * cols * sizeof(int));
+
+			cv::Mat image_mat(rows, cols, CV_32F, arr);
+			image_mat.convertTo(image_mat, CV_8U, 255, 0);
+
+			bool flag = cv::imwrite(names[i], image_mat);
+			cout << names[i] << ": " << flag << endl;
+			delete[] arr;
+		}
 	}
 }
+
 
 #include "iostream"
 
 int main(int argc, char **argv)
 {
-	if (argc < 3)
+	if (argc < 18)//argc < 3
 	{
-		cout << "ERROR: Need at least 3 parameters!" << endl;
+		cout << "ERROR: Need at least 17 parameters!" << endl;
 		return -1;
 	}
 
@@ -132,24 +164,34 @@ int main(int argc, char **argv)
 	for (int i(2); i < argc; ++i)
 		image_paths.push_back(string(argv[i]));
 	vector<Tensor> image_tensors;
-	// ReadImage(image_paths, 512, 512, image_tensors);
-	ReadImageNew(image_paths, 128, 128, image_tensors);
+	//ReadImageNew(image_paths, 128, 128, image_tensors);
+	ReadImageNew(image_paths, 256, 256, image_tensors);
 	vector<Tensor> outputs;
 	vector<Tensor> masks;
 	for (auto &image_tensor : image_tensors)
 	{
 		std::vector<std::pair<string, Tensor> > inputs;
-		inputs.push_back({ "Input", image_tensor });
 
-		tensorflow::Tensor drop_out = tensorflow::Tensor(tensorflow::DT_FLOAT, TensorShape());
-		drop_out.scalar<float>()() = 1;
-		inputs.push_back({ "DropOut", drop_out });
+		inputs.push_back({ "Placeholder", image_tensor });
 
-		tensorflow::Tensor phase = tensorflow::Tensor(tensorflow::DT_BOOL, TensorShape());
-		phase.scalar<bool>()() = true;
-		inputs.push_back({ "Phase", phase });
+		tensorflow::Tensor placeholder = tensorflow::Tensor(tensorflow::DT_FLOAT, TensorShape());
+		placeholder.scalar<float>()() = true;
+		inputs.push_back({ "Placeholder_4", placeholder });
 
-		TF_CHECK_OK(session->Run(inputs, { "output" }, {}, &outputs));
+		//inputs.push_back({ "Input", image_tensor });
+
+		//tensorflow::Tensor drop_out = tensorflow::Tensor(tensorflow::DT_FLOAT, TensorShape());
+		//drop_out.scalar<float>()() = 1;
+		//inputs.push_back({ "DropOut", drop_out });
+
+		//tensorflow::Tensor phase = tensorflow::Tensor(tensorflow::DT_BOOL, TensorShape());
+		//phase.scalar<bool>()() = true;
+		//inputs.push_back({ "Phase", phase });
+
+		std::cout << image_tensor.shape() << endl;
+
+		TF_CHECK_OK(session->Run(inputs, { "output/Sigmoid" }, {}, &outputs));
+		//TF_CHECK_OK(session->Run(inputs, { "output" }, {}, &outputs));
 		std::cout << "outputs size is " << outputs.size() << std::endl;
 
 		masks.push_back(outputs[0]);
